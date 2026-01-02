@@ -3,83 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GITADORA 抽選システム (ClientID同期・安定版)</title>
+<title>GITADORA 抽選システム (完全同期・整合性保証版)</title>
 
 <style>
 body {
   margin: 0;
   background: #0a0a19;
-  /* 背景画像URLをここに入れてください */
   background: url("背景画像URL") no-repeat center/cover;
   font-family: "Segoe UI", "Meiryo", sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  overflow: hidden;
+  display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden;
 }
 
 .container {
-  width: 1000px; 
-  padding: 50px;
-  background: rgba(10, 10, 25, 0.98);
-  border-radius: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  width: 930px; padding: 50px; background: rgba(10, 10, 25, 0.98);
+  border-radius: 40px; border: 3px solid rgba(255, 255, 255, 0.2);
+  color: #fff; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
 }
 
 .song {
-  font-size: 58px; 
-  font-weight: bold;
-  min-height: 90px;
-  margin-bottom: 20px;
-  color: #00f2ff;
-  text-shadow: 0 0 20px rgba(0, 242, 255, 0.6);
-  word-wrap: break-word;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 58px; font-weight: bold; min-height: 90px; margin-bottom: 20px;
+  color: #00f2ff; text-shadow: 0 0 20px rgba(0, 242, 255, 0.6);
+  word-wrap: break-word; display: flex; align-items: center; justify-content: center;
 }
 
 .meta {
-  font-size: 42px;
-  opacity: 0.9;
-  height: 50px;
-  margin-bottom: 50px;
-  border-bottom: 2px solid rgba(255,255,255,0.1);
-  padding-bottom: 20px;
+  font-size: 42px; opacity: 0.9; height: 50px; margin-bottom: 50px;
+  border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 20px;
 }
 
 button {
-  font-size: 40px;
-  padding: 22px 100px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  color: #fff;
+  font-size: 40px; padding: 22px 100px; border-radius: 999px; border: none;
+  cursor: pointer; font-weight: bold; color: #fff;
   background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
   transition: transform 0.1s, box-shadow 0.2s;
   box-shadow: 0 8px 25px rgba(255, 77, 109, 0.5);
 }
 
-button:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 12px 35px rgba(255, 77, 109, 0.7);
-}
-
-button:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-button:disabled {
-  background: #444;
-  opacity: 0.6;
-  cursor: default;
-  box-shadow: none;
-}
+button:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 12px 35px rgba(255, 77, 109, 0.7); }
+button:active:not(:disabled) { transform: scale(0.95); }
+button:disabled { background: #444; opacity: 0.6; cursor: default; box-shadow: none; }
 </style>
 </head>
 
@@ -91,19 +53,17 @@ button:disabled {
 </div>
 
 <script>
-// ★GASのURLをここに貼り付け
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec";
 
-// ブラウザ起動時に自分専用の識別IDを作成
+// 自分専用の識別ID
 const MY_CLIENT_ID = "ID_" + Date.now() + "_" + Math.random().toString(36).substring(2, 11);
 
 let animTimer = null;
 let lastTime = null;
 let lastStartTime = null; 
 let isDrawing = false;
-let isFirstLoad = true; // 初回読み込み判定フラグ
+let isFirstLoad = true;
 
-// 演出アニメーション（ダミー曲名を回す）
 function startAnimation() {
   const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Agnus Dei", "Children of Bodom"];
   let i = 0;
@@ -114,23 +74,19 @@ function startAnimation() {
   }, 80);
 }
 
-// 演出停止
 function stopAnimation() {
   if (animTimer) clearInterval(animTimer);
   animTimer = null;
 }
 
-// 結果表示
 function showResult(data) {
-  // 難易度を小数点第2位まで表示
   const formattedLv = data.level ? Number(data.level).toFixed(2) : "0.00";
-  
   document.getElementById("song").textContent = data.title || "No Title";
   document.getElementById("meta").textContent = 
     data.part ? `${data.part} / Lv.${formattedLv}` : `Lv.${formattedLv}`;
 }
 
-// 【抽選実行】ボタンを押した時の処理
+// ボタンを押した本人の処理
 async function draw() {
   if (isDrawing) return; 
   isDrawing = true; 
@@ -138,27 +94,23 @@ async function draw() {
   btn.disabled = true;
 
   startAnimation();
-  const requestStartTime = Date.now();
+  const requestTime = Date.now();
 
   try {
-    // 自分のClientIDを添えてリクエスト
-    const res = await fetch(`${GAS_URL}?action=draw&clientId=${MY_CLIENT_ID}&t=${requestStartTime}`);
+    const res = await fetch(`${GAS_URL}?action=draw&clientId=${MY_CLIENT_ID}&t=${requestTime}`);
     const result = await res.json();
 
     if (result.startTime) {
-      // 自分の実行結果としてIDを保存
       lastStartTime = String(result.startTime);
       lastTime = result.time;
 
-      // 最低7秒は演出を見せる
-      const elapsedTime = Date.now() - requestStartTime;
+      // 演出時間を消化
+      const elapsedTime = Date.now() - requestTime;
       const waitTime = Math.max(0, 7000 - elapsedTime); 
 
       setTimeout(() => {
         stopAnimation();
         showResult(result);
-        
-        // 演出完了後にロックを解除
         setTimeout(() => {
           isDrawing = false; 
           btn.disabled = false;
@@ -166,23 +118,21 @@ async function draw() {
       }, waitTime);
     }
   } catch (e) {
-    console.error("抽選エラー:", e);
     stopAnimation();
     isDrawing = false;
     btn.disabled = false;
   }
 }
 
-// 【同期チェック】スプレッドシートの状態を確認
+// 他人の動作を検知する同期処理
 async function fetchResult() {
-  // 自分がボタンを押して演出中なら、同期処理をスキップ
   if (isDrawing) return;
 
   try {
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    // 初回読み込み時は、IDだけをメモして画面はREADY...のままにする
+    // 初回読み込み（READY...維持）
     if (isFirstLoad) {
       lastStartTime = String(data.startTime);
       lastTime = data.time;
@@ -190,46 +140,46 @@ async function fetchResult() {
       return; 
     }
 
-    // 新しい抽選開始IDを検知した場合
+    // 新しい開始IDを検知
     if (data.startTime && String(data.startTime) !== String(lastStartTime)) {
       
-      // 自分が実行したIDなら演出はスルー（既にdraw()側で演出しているため）
+      // 自分の実行なら無視
       if (data.clientId === MY_CLIENT_ID) {
         lastStartTime = String(data.startTime);
         lastTime = data.time;
         return; 
       }
 
-      // 他人が実行したIDなら演出を開始
+      // 他人の抽選：演出開始
       lastStartTime = String(data.startTime);
       if (!animTimer) {
         startAnimation();
-        setTimeout(() => {
-          stopAnimation();
-          showResult(data);
-          lastTime = data.time;
+        
+        // 【重要】演出が終わる直前（7秒後）に「確定した曲データ」を再取得する
+        setTimeout(async () => {
+          try {
+            const finalRes = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
+            const finalData = await finalRes.json();
+            stopAnimation();
+            showResult(finalData); // 最新の曲を表示
+            lastTime = finalData.time;
+          } catch (e) {
+            stopAnimation();
+            showResult(data); // 失敗時は元のデータ
+          }
         }, 7000);
       }
     } 
   } catch (e) {
-    console.warn("同期チェック失敗（通信環境を確認してください）");
+    console.warn("Sync Skip");
   }
 }
 
-// 起動直後の1回目
 fetchResult();
-
-// 5秒おきに監視
-setInterval(fetchResult, 1000);
-
+setInterval(fetchResult, 2000);
 </script>
 </body>
 </html>
-
-
-
-
-
 
 
 
