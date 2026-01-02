@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GITADORA 抽選システム (安定版)</title>
+<title>GITADORA 抽選システム (安定同期版)</title>
 
 <style>
 body {
@@ -18,7 +18,6 @@ body {
 }
 
 .container {
-  /* 全体的に1.5倍サイズへ拡大 */
   width: 930px; 
   padding: 45px;
   background: rgba(10, 10, 25, 0.98);
@@ -30,14 +29,12 @@ body {
 }
 
 .song {
-  /* 文字サイズを1.5倍に */
   font-size: 54px; 
   font-weight: bold;
   min-height: 80px;
   margin-bottom: 15px;
   color: #00f2ff;
   text-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
-  /* 長い曲名でもはみ出さないように調整 */
   word-wrap: break-word;
   display: flex;
   align-items: center;
@@ -45,7 +42,6 @@ body {
 }
 
 .meta {
-  /* 文字サイズを1.5倍に */
   font-size: 38px;
   opacity: 0.9;
   height: 45px;
@@ -55,7 +51,6 @@ body {
 }
 
 button {
-  /* ボタンも特大サイズに変更 */
   font-size: 36px;
   padding: 18px 80px;
   border-radius: 999px;
@@ -68,22 +63,9 @@ button {
   box-shadow: 0 6px 20px rgba(255, 77, 109, 0.4);
 }
 
-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 10px 30px rgba(255, 77, 109, 0.6);
-}
-
-button:active {
-  transform: scale(0.95);
-}
-
-button:disabled {
-  background: #444;
-  opacity: 0.7;
-  cursor: default;
-  transform: none;
-  box-shadow: none;
-}
+button:hover { transform: scale(1.05); }
+button:active { transform: scale(0.95); }
+button:disabled { background: #444; opacity: 0.7; cursor: default; }
 </style>
 </head>
 
@@ -91,7 +73,7 @@ button:disabled {
 <div class="container">
   <div class="song" id="song">READY...</div>
   <div class="meta" id="meta">Lv.9.5以上</div>
-  <button id="btn" onclick="draw()">抽 選 </button>
+  <button id="btn" onclick="draw()">抽 選</button>
 </div>
 
 <script>
@@ -99,9 +81,9 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt
 
 let animTimer = null;
 let lastTime = null;
-let isDrawing = false; // 抽選実行中フラグ
+let lastStartTime = null; // 最後に処理した開始時刻
+let isDrawing = false; 
 
-// 抽選中アニメーション
 function startAnimation() {
   const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Agnus Dei"];
   let i = 0;
@@ -123,32 +105,34 @@ function showResult(data) {
     data.part ? `${data.part} / Lv.${data.level}` : `Lv.${data.level}`;
 }
 
+// 自分でボタンを押した時の処理
 async function draw() {
   if (isDrawing) return; 
-  
   isDrawing = true;
   const btn = document.getElementById("btn");
   btn.disabled = true;
 
   startAnimation();
-
-  // 演出を長めに見せるため、最低でも3秒（3000ms）待機する時間を記録
-  const startTime = Date.now();
+  const requestTime = Date.now();
 
   try {
-    const res = await fetch(`${GAS_URL}?action=draw&t=${startTime}`);
+    const res = await fetch(`${GAS_URL}?action=draw&t=${requestTime}`);
     const result = await res.json();
 
     if (result.title) {
-      // GASの処理が終わっても、最低3秒経つまでは演出を続ける
-      const elapsedTime = Date.now() - startTime;
+      // 重要：自分が発行した時刻を即座に記録し、fetchResultでの重複反応を防止
+      lastStartTime = result.startTime;
+
+      // 7秒演出
+      const elapsedTime = Date.now() - requestTime;
       const waitTime = Math.max(0, 7000 - elapsedTime); 
 
       setTimeout(() => {
         lastTime = result.time;
         stopAnimation();
-        showResult(result); // ここでpartも正しく表示されます
+        showResult(result);
         
+        // 演出終了後にロック解除
         setTimeout(() => {
           isDrawing = false; 
           btn.disabled = false;
@@ -158,38 +142,35 @@ async function draw() {
   } catch (e) {
     console.error("抽選エラー:", e);
     stopAnimation();
-    document.getElementById("song").textContent = "通信エラー";
     isDrawing = false;
     btn.disabled = false;
   }
 }
 
-let lastStartTime = null; // 最後に見た抽選の開始時刻
-
+// 他の人の動作を検知する定期同期
 async function fetchResult() {
+  // 自分が抽選実行中なら、重複演出を避けるため何もしない
   if (isDrawing) return;
 
   try {
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    // 【重要】前回見た開始時刻より新しい時刻が届いたら、抽選演出を開始する
+    // 他の人が新しい抽選を始めたかチェック
     if (data.startTime && data.startTime !== lastStartTime) {
-      lastStartTime = data.startTime; // 開始時刻を更新
+      lastStartTime = data.startTime; // 開始時刻を更新してロック
       
-      // まだアニメーションしてなければ開始
       if (!animTimer) {
         startAnimation();
-        
-        // 5秒間は強制的に回し続けてから、結果を表示する
+        // 他の人側の画面でも7秒演出（同期）
         setTimeout(() => {
           stopAnimation();
           showResult(data);
           lastTime = data.time;
-        }, 5000); 
+        }, 7000);
       }
     } 
-    // 抽選中でなく、かつ新しい結果がある場合（初回読み込みなど）
+    // 演出中でない時の通常更新
     else if (!animTimer && data.time !== lastTime) {
       lastTime = data.time;
       showResult(data);
@@ -198,17 +179,16 @@ async function fetchResult() {
     console.warn("同期エラー");
   }
 }
+
 // 初回読み込み
 fetchResult();
 
-// 5秒ごとに「現在のシートの状態」を見に行くだけ
+// 7秒ごとにチェック
 setInterval(fetchResult, 7000);
 
 </script>
 </body>
 </html>
-
-
 
 
 
