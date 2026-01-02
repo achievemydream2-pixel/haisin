@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GITADORA 抽選システム</title>
+<title>GITADORA 抽選システム (安定版)</title>
 
 <style>
 body {
   margin: 0;
-  /* 背景画像がない場合の予備として暗い色を設定 */
   background: #0a0a19;
   background: url("背景画像URL") no-repeat center/cover;
   font-family: "Segoe UI", "Meiryo", sans-serif;
@@ -26,7 +25,6 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.2);
   color: #fff;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .song {
@@ -34,9 +32,7 @@ body {
   font-weight: bold;
   min-height: 50px;
   margin-bottom: 10px;
-  letter-spacing: 1px;
   color: #00f2ff;
-  text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
 .meta {
@@ -44,8 +40,6 @@ body {
   opacity: 0.9;
   height: 30px;
   margin-bottom: 25px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  padding-bottom: 10px;
 }
 
 button {
@@ -57,24 +51,12 @@ button {
   font-weight: bold;
   color: #fff;
   background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
-  transition: transform 0.1s, box-shadow 0.2s;
-  box-shadow: 0 4px 15px rgba(255, 77, 109, 0.4);
-}
-
-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.6);
-}
-
-button:active {
-  transform: scale(0.95);
 }
 
 button:disabled {
   background: #444;
-  box-shadow: none;
+  opacity: 0.7;
   cursor: default;
-  transform: none;
 }
 </style>
 </head>
@@ -87,21 +69,17 @@ button:disabled {
 </div>
 
 <script>
-// ★ここに最新のデプロイURLを貼り付けてください
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec";
+const GAS_URL = "あなたのGASデプロイURL";
 
 let animTimer = null;
 let lastTime = null;
-let isDrawing = false;
+let isDrawing = false; // 抽選実行中フラグ
 
 // 抽選中アニメーション
 function startAnimation() {
-  const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Day's!", "Agnus Dei"];
+  const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Agnus Dei"];
   let i = 0;
-  
-  // すでにあるタイマーをクリア
   if (animTimer) clearInterval(animTimer);
-
   animTimer = setInterval(() => {
     document.getElementById("song").textContent = dummy[i++ % dummy.length];
     document.getElementById("meta").textContent = "抽選中...";
@@ -109,84 +87,76 @@ function startAnimation() {
 }
 
 function stopAnimation() {
-  clearInterval(animTimer);
+  if (animTimer) clearInterval(animTimer);
   animTimer = null;
 }
 
-// 結果を画面に表示する関数
 function showResult(data) {
   document.getElementById("song").textContent = data.title || "No Title";
   document.getElementById("meta").textContent = 
     data.part ? `${data.part} / Lv.${data.level}` : `Lv.${data.level}`;
 }
 
-// ボタンを押した時の処理（新規抽選）
+// 【抽選実行】ボタンを押した時だけ実行
 async function draw() {
-  if (isDrawing) return; // 二重実行防止
+  if (isDrawing) return; 
   
+  isDrawing = true; // ロック開始
   const btn = document.getElementById("btn");
   btn.disabled = true;
-  isDrawing = true;
 
   startAnimation();
 
   try {
-    // 抽選リクエスト (action=draw)
+    // 強制的に action=draw を一回だけ叩く
     const res = await fetch(`${GAS_URL}?action=draw&t=${Date.now()}`);
     const result = await res.json();
 
     if (result.title) {
-      // 少しだけ演出のために時間を置いてから表示
-      setTimeout(() => {
-        lastTime = result.time;
-        stopAnimation();
-        showResult(result);
-        isDrawing = false;
-        btn.disabled = false;
-      }, 500);
-    } else {
-      throw new Error("Invalid data");
+      lastTime = result.time; // 取得した時間を記録
+      stopAnimation();
+      showResult(result);
     }
   } catch (e) {
     console.error("抽選エラー:", e);
     stopAnimation();
-    document.getElementById("song").textContent = "通信エラー";
-    document.getElementById("meta").textContent = "再読み込みしてください";
-    isDrawing = false;
-    btn.disabled = false;
+    document.getElementById("song").textContent = "エラーが発生しました";
+  } finally {
+    // 1秒待ってからロック解除（連打防止）
+    setTimeout(() => {
+      isDrawing = false; 
+      btn.disabled = false;
+    }, 1000);
   }
 }
 
-// データの同期（最新結果の取得：action=get）
+// 【定期同期】最新結果を読み取るだけ（更新はしない）
 async function fetchResult() {
-  // 自分で抽選している最中は同期しない
+  // 自分が抽選中の場合は、同期処理を完全にスキップする
   if (isDrawing) return;
 
   try {
+    // ここは必ず action=get を使う！
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    if (!data.time) return;
-
-    // 前回の取得時と時間が異なれば（誰かが更新すれば）表示を更新
-    if (data.time !== lastTime) {
+    if (data && data.time && data.time !== lastTime) {
       lastTime = data.time;
       showResult(data);
     }
   } catch (e) {
-    console.warn("同期エラー（無視して継続します）:", e);
+    console.warn("同期エラー");
   }
 }
 
-// ページを開いた時に一度実行
+// 初回読み込み
 fetchResult();
 
-// 5秒ごとに自動更新（同期）
+// 5秒ごとに「現在のシートの状態」を見に行くだけ
 setInterval(fetchResult, 5000);
 
 </script>
 </body>
 </html>
-
 
 
