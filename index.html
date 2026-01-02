@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GITADORA 抽選システム (完全同期版)</title>
+<title>GITADORA 抽選システム (ClientID同期版)</title>
 
 <style>
 body {
   margin: 0;
   background: #0a0a19;
-  /* お好みの背景画像URLに差し替えてください */
   background: url("背景画像URL") no-repeat center/cover;
   font-family: "Segoe UI", "Meiryo", sans-serif;
   display: flex;
@@ -22,7 +21,7 @@ body {
 .container {
   width: 930px; 
   padding: 50px;
-  background: rgba(10, 10, 25, 0.95);
+  background: rgba(10, 10, 25, 0.98);
   border-radius: 40px;
   border: 3px solid rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -91,15 +90,16 @@ button:disabled {
 </div>
 
 <script>
-// ★GASのデプロイURLをここに貼り付け
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec";
 
-let animTimer = null;
-let lastTime = null;      // 最後に表示した抽選完了時刻
-let lastStartTime = null; // 最後に処理した抽選開始ID（ミリ秒）
-let isDrawing = false;    // 自分が抽選操作中かどうかのフラグ
+// 【重要】ブラウザ起動時に自分専用の識別IDを作成
+const MY_CLIENT_ID = "ID_" + Date.now() + "_" + Math.random().toString(36).substring(2, 11);
 
-// 演出アニメーション
+let animTimer = null;
+let lastTime = null;      // 完了時刻の保存
+let lastStartTime = null; // 抽選開始IDの保存
+let isDrawing = false;    // 自分が抽選ボタンを押した後の操作中フラグ
+
 function startAnimation() {
   const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Agnus Dei", "Children of Bodom"];
   let i = 0;
@@ -121,7 +121,7 @@ function showResult(data) {
     data.part ? `${data.part} / Lv.${data.level}` : `Lv.${data.level}`;
 }
 
-// 【自分でボタンを押した時の処理】
+// 【抽選実行】ボタンを押した本人の処理
 async function draw() {
   if (isDrawing) return; 
   
@@ -133,58 +133,58 @@ async function draw() {
   const requestStartTime = Date.now();
 
   try {
-    const res = await fetch(`${GAS_URL}?action=draw&t=${requestStartTime}`);
+    // 自分のClientIDをパラメータに含めて送信
+    const res = await fetch(`${GAS_URL}?action=draw&clientId=${MY_CLIENT_ID}&t=${requestStartTime}`);
     const result = await res.json();
 
     if (result.startTime) {
-      // 自分が発行したIDを即座に保存（定期チェックでの二重反応を防止）
+      // 自分の実行結果としてIDを保存
       lastStartTime = String(result.startTime);
       lastTime = result.time;
 
-      // 最低7秒は演出を見せる
-      const elapsedTime = Date.now() - requestStartTime;
-      const waitTime = Math.max(0, 7000 - elapsedTime); 
-
+      // 7秒間の演出
       setTimeout(() => {
         stopAnimation();
         showResult(result);
         
-        // 演出終了後、少し余裕を持ってからロック解除（通信ラグ対策）
+        // 演出完了後にロックを解除
         setTimeout(() => {
           isDrawing = false; 
           btn.disabled = false;
-        }, 2000); 
-      }, waitTime);
+        }, 1500); 
+      }, 7000);
     }
   } catch (e) {
     console.error("抽選エラー:", e);
     stopAnimation();
-    document.getElementById("song").textContent = "ERROR";
     isDrawing = false;
     btn.disabled = false;
   }
 }
 
-// 【定期チェック（他人の動作を同期）】
+// 【定期チェック】他人の動作を検知する
 async function fetchResult() {
-  // 自分が抽選操作中なら、同期処理による上書きを完全にブロックする
+  // 自分がボタンを押して演出中なら、同期チェックは絶対に行わない
   if (isDrawing) return;
 
   try {
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    // ID（startTime）を文字列として比較し、未知のIDであれば演出開始
+    // 1. シートに記録されている開始IDが新しいか確認
     if (data.startTime && String(data.startTime) !== String(lastStartTime)) {
       
-      // 他人の抽選を検知したのでIDを更新
+      // 2. 【核心】その抽選を行ったのが自分（MY_CLIENT_ID）であれば無視する
+      if (data.clientId === MY_CLIENT_ID) {
+        lastStartTime = String(data.startTime);
+        lastTime = data.time;
+        return; 
+      }
+
+      // 他人の抽選だった場合のみ演出開始
       lastStartTime = String(data.startTime);
-      
-      // すでに演出中でなければ開始
       if (!animTimer) {
         startAnimation();
-        
-        // 7秒演出後に結果を表示
         setTimeout(() => {
           stopAnimation();
           showResult(data);
@@ -192,34 +192,25 @@ async function fetchResult() {
         }, 7000);
       }
     } 
-    // 演出中でなく、単に読み込み時やデータ更新が必要な場合
+    // 演出中でない場合の表示更新
     else if (!animTimer && data.time !== lastTime) {
       lastTime = data.time;
       showResult(data);
     }
   } catch (e) {
-    // 同期エラーは無視
+    console.warn("同期エラー（スキップ）");
   }
 }
 
-// ページを開いた瞬間に一度チェック
+// 初回チェック
 fetchResult();
 
-// 5秒おきに最新状態を確認（ID照合があるため、演出時間より短くても安全）
-setInterval(fetchResult, 1000);
+// 5秒おきに監視（ClientID照合により重複は起きません）
+setInterval(fetchResult, 5000);
 
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
 
 
 
