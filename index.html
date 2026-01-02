@@ -2,139 +2,191 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>GITADORA 抽選</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GITADORA 抽選システム</title>
 
 <style>
 body {
   margin: 0;
+  /* 背景画像がない場合の予備として暗い色を設定 */
+  background: #0a0a19;
   background: url("背景画像URL") no-repeat center/cover;
-  font-family: "Segoe UI","Meiryo",sans-serif;
+  font-family: "Segoe UI", "Meiryo", sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
 .container {
   width: 620px;
-  padding: 24px 28px;
-  background: rgba(10, 10, 25, 0.88);
-  border-radius: 16px;
-  border: 2px solid rgba(255,255,255,0.25);
+  padding: 30px;
+  background: rgba(10, 10, 25, 0.9);
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   color: #fff;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .song {
-  font-size: 34px;
+  font-size: 36px;
   font-weight: bold;
-  min-height: 48px;
+  min-height: 50px;
+  margin-bottom: 10px;
   letter-spacing: 1px;
+  color: #00f2ff;
+  text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
 .meta {
-  margin-top: 8px;
-  font-size: 20px;
+  font-size: 22px;
   opacity: 0.9;
+  height: 30px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 10px;
 }
 
 button {
-  margin-top: 18px;
-  font-size: 22px;
-  padding: 10px 34px;
+  font-size: 24px;
+  padding: 12px 50px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
   font-weight: bold;
+  color: #fff;
   background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(255, 77, 109, 0.4);
+}
+
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.6);
+}
+
+button:active {
+  transform: scale(0.95);
 }
 
 button:disabled {
-  opacity: 0.5;
+  background: #444;
+  box-shadow: none;
   cursor: default;
+  transform: none;
 }
 </style>
 </head>
 
 <body>
 <div class="container">
-  <div class="song" id="song">READY</div>
+  <div class="song" id="song">READY...</div>
   <div class="meta" id="meta">Lv.9.5以上</div>
   <button id="btn" onclick="draw()">抽 選 ！</button>
 </div>
 
 <script>
+// ★ここに最新のデプロイURLを貼り付けてください
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec";
 
 let animTimer = null;
 let lastTime = null;
+let isDrawing = false;
 
 // 抽選中アニメーション
 function startAnimation() {
-  const dummy = [
-    "MODEL DD",
-    "DESTINY",
-    "VANESSA",
-    "EXCHAIN",
-    "The Least"
-  ];
+  const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Day's!", "Agnus Dei"];
   let i = 0;
+  
+  // すでにあるタイマーをクリア
+  if (animTimer) clearInterval(animTimer);
 
   animTimer = setInterval(() => {
-    document.getElementById("song").textContent =
-      dummy[i++ % dummy.length] + " ...";
-    document.getElementById("meta").textContent = "抽選中";
+    document.getElementById("song").textContent = dummy[i++ % dummy.length];
+    document.getElementById("meta").textContent = "抽選中...";
   }, 80);
 }
 
 function stopAnimation() {
   clearInterval(animTimer);
+  animTimer = null;
 }
 
-// 結果表示
+// 結果を画面に表示する関数
 function showResult(data) {
-  document.getElementById("song").textContent = data.title;
-  document.getElementById("meta").textContent =
-    `${data.part} / Lv.${data.level}`;
+  document.getElementById("song").textContent = data.title || "No Title";
+  document.getElementById("meta").textContent = 
+    data.part ? `${data.part} / Lv.${data.level}` : `Lv.${data.level}`;
 }
 
-// 抽選ボタン
+// ボタンを押した時の処理（新規抽選）
 async function draw() {
+  if (isDrawing) return; // 二重実行防止
+  
   const btn = document.getElementById("btn");
   btn.disabled = true;
+  isDrawing = true;
 
   startAnimation();
 
-  await fetch(
-    GAS_URL + "?action=draw&t=" + Date.now()
-  );
+  try {
+    // 抽選リクエスト (action=draw)
+    const res = await fetch(`${GAS_URL}?action=draw&t=${Date.now()}`);
+    const result = await res.json();
 
-  // 抽選後に結果取得
-  setTimeout(fetchResult, 800);
-
-  btn.disabled = false;
-}
-
-// 結果取得（同期用）
-async function fetchResult() {
-  const res = await fetch(
-    GAS_URL + "?action=draw&t=" + Date.now()
-  );
-  const data = await res.json();
-
-  if (!data.time) return;
-
-  if (data.time !== lastTime) {
-    lastTime = data.time;
+    if (result.title) {
+      // 少しだけ演出のために時間を置いてから表示
+      setTimeout(() => {
+        lastTime = result.time;
+        stopAnimation();
+        showResult(result);
+        isDrawing = false;
+        btn.disabled = false;
+      }, 500);
+    } else {
+      throw new Error("Invalid data");
+    }
+  } catch (e) {
+    console.error("抽選エラー:", e);
     stopAnimation();
-    showResult(data);
+    document.getElementById("song").textContent = "通信エラー";
+    document.getElementById("meta").textContent = "再読み込みしてください";
+    isDrawing = false;
+    btn.disabled = false;
   }
 }
 
-// 初回 & 定期同期
-fetchResult();
-setInterval(fetchResult, 3000);
-</script>
+// データの同期（最新結果の取得：action=get）
+async function fetchResult() {
+  // 自分で抽選している最中は同期しない
+  if (isDrawing) return;
 
+  try {
+    const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
+    const data = await res.json();
+
+    if (!data.time) return;
+
+    // 前回の取得時と時間が異なれば（誰かが更新すれば）表示を更新
+    if (data.time !== lastTime) {
+      lastTime = data.time;
+      showResult(data);
+    }
+  } catch (e) {
+    console.warn("同期エラー（無視して継続します）:", e);
+  }
+}
+
+// ページを開いた時に一度実行
+fetchResult();
+
+// 5秒ごとに自動更新（同期）
+setInterval(fetchResult, 5000);
+
+</script>
 </body>
 </html>
-
-
 
 
 
