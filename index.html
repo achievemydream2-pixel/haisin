@@ -142,7 +142,7 @@ async function draw() {
     if (result.title) {
       // GASの処理が終わっても、最低3秒経つまでは演出を続ける
       const elapsedTime = Date.now() - startTime;
-      const waitTime = Math.max(0, 5000 - elapsedTime); 
+      const waitTime = Math.max(0, 7000 - elapsedTime); 
 
       setTimeout(() => {
         lastTime = result.time;
@@ -197,11 +197,12 @@ async function fetchResult() {
 fetchResult();
 
 // 5秒ごとに「現在のシートの状態」を見に行くだけ
-setInterval(fetchResult, 5000);
+setInterval(fetchResult, 7000);
 
 </script>
 </body>
 </html>
+
 
 
 
