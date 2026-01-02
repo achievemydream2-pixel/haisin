@@ -156,25 +156,35 @@ async function draw() {
   }
 }
 
-// 【定期同期】最新結果を読み取るだけ（更新はしない）
+// 定期同期関数の修正
 async function fetchResult() {
-  // 自分が抽選中の場合は、同期処理を完全にスキップする
+  // 自分がボタンを押して抽選している間は、二重動作を防ぐため同期を止める
   if (isDrawing) return;
 
   try {
-    // ここは必ず action=get を使う！
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    if (data && data.time && data.time !== lastTime) {
-      lastTime = data.time;
-      showResult(data);
+    // 他の人が抽選を開始した（statusがdrawingになった）場合
+    if (data.status === "drawing") {
+      if (!animTimer) { // まだアニメーションしていなければ開始
+        startAnimation();
+      }
+      return; // 抽選中なので、結果の表示処理には進まない
+    }
+
+    // 抽選が終わっている（statusがidle）場合
+    if (data.status === "idle" || !data.status) {
+      if (data.time !== lastTime) {
+        lastTime = data.time;
+        stopAnimation(); // アニメーションを止めて
+        showResult(data); // 結果を表示
+      }
     }
   } catch (e) {
     console.warn("同期エラー");
   }
 }
-
 // 初回読み込み
 fetchResult();
 
@@ -184,6 +194,7 @@ setInterval(fetchResult, 1000);
 </script>
 </body>
 </html>
+
 
 
 
