@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>GITADORA 抽選</title>
+
+<style>
+body {
+  margin: 0;
+  background: url("背景画像URL") no-repeat center/cover;
+  font-family: "Segoe UI","Meiryo",sans-serif;
+}
+
+.container {
+  width: 620px;
+  padding: 24px 28px;
+  background: rgba(10, 10, 25, 0.88);
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+.song {
+  font-size: 34px;
+  font-weight: bold;
+  min-height: 48px;
+  letter-spacing: 1px;
+}
+
+.meta {
+  margin-top: 8px;
+  font-size: 20px;
+  opacity: 0.9;
+}
+
+button {
+  margin-top: 18px;
+  font-size: 22px;
+  padding: 10px 34px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <div class="song" id="song">READY</div>
+  <div class="meta" id="meta">Lv.9.5以上</div>
+  <button id="btn" onclick="draw()">抽 選 ！</button>
+</div>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwfkT17HcrW0uiKjOub_5I3Hj-tNcfI1Kqwz8IYiBlaF2MYEdOBrPKEuVBTAQoRZ27Rjw/exec";
+
+let animTimer = null;
+let lastTime = null;
+
+// 抽選中アニメーション
+function startAnimation() {
+  const dummy = [
+    "MODEL DD",
+    "DESTINY",
+    "VANESSA",
+    "EXCHAIN",
+    "The Least"
+  ];
+  let i = 0;
+
+  animTimer = setInterval(() => {
+    document.getElementById("song").textContent =
+      dummy[i++ % dummy.length] + " ...";
+    document.getElementById("meta").textContent = "抽選中";
+  }, 80);
+}
+
+function stopAnimation() {
+  clearInterval(animTimer);
+}
+
+// 結果表示
+function showResult(data) {
+  document.getElementById("song").textContent = data.title;
+  document.getElementById("meta").textContent =
+    `${data.part} / Lv.${data.level}`;
+}
+
+// 抽選ボタン（POST）
+async function draw() {
+  const btn = document.getElementById("btn");
+  btn.disabled = true;
+
+  startAnimation();
+
+  await fetch(GAS_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({ action: "draw" })
+});
+  // 少し待って同期取得
+  setTimeout(fetchResult, 600);
+
+  btn.disabled = false;
+}
+
+// 定期同期（GET）
+async function fetchResult() {
+  const res = await fetch(GAS_URL);
+  const data = await res.json();
+
+  if (data.time !== lastTime) {
+    lastTime = data.time;
+    stopAnimation();
+    showResult(data);
+  }
+}
+
+// 3秒ごとに同期
+fetchResult();
+setInterval(fetchResult, 3000);
+</script>
+</body>
+</html>
