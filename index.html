@@ -59,7 +59,7 @@ button:disabled {
 </div>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec?action=draw";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec";
 
 let animTimer = null;
 let lastTime = null;
@@ -113,7 +113,7 @@ async function draw() {
 // 結果取得（同期用）
 async function fetchResult() {
   const res = await fetch(
-    GAS_URL + "?action=get&t=" + Date.now()
+    GAS_URL + "?action=draw&t=" + Date.now()
   );
   const data = await res.json();
 
@@ -133,6 +133,7 @@ setInterval(fetchResult, 3000);
 
 </body>
 </html>
+
 
 
 
