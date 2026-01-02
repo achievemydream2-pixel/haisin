@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>GITADORA Scoreboard</title>
+
+<style>
+  body {
+    margin: 0;
+    width: 1920px;
+    height: 1080px;
+    background: url("background_p2.webp") no-repeat center;
+    background-size: cover;
+    font-family: "Noto Sans JP", sans-serif;
+    color: #ffffff;
+  }
+
+.scoreboard {
+  position: absolute;
+  top: 180px;
+  left: 160px;
+  width: 1600px;
+  background: rgba(10, 10, 25, 0.99); /* 濃く */
+  backdrop-filter: blur(8px);
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow:
+    0 0 30px rgba(0,0,0,0.6),
+    inset 0 0 40px rgba(255,255,255,0.05);
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+th {
+  font-size: 22px;
+  font-weight: 600;
+  padding: 14px 8px;
+  background: rgba(255,255,255,0.12);
+  border-bottom: 2px solid rgba(255,255,255,0.35);
+}
+
+td {
+  padding: 14px 8px;
+  font-size: 26px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+}
+
+tr:nth-child(even) td {
+  background: rgba(255,255,255,0.04);
+}
+
+td.song {
+  text-align: left;
+  font-weight: 500;
+  padding-left: 18px;
+}
+
+td.lv {
+  opacity: 0.9;
+  font-size: 22px;
+}
+
+tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+tbody tr:nth-child(odd) td {
+  background: rgba(0, 0, 0, 0.10);
+}
+
+th:not(:last-child),
+td:not(:last-child) {
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+  .win {
+    color: #00ffd5;
+    font-weight: 700;
+    text-shadow: 0 0 12px rgba(0,255,213,0.9);
+  }
+
+  .lose {
+    color: #ff7a7a;
+    text-shadow: 0 0 8px rgba(255,120,120,0.6);
+  }
+
+  .draw {
+    color: #ffffff;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="scoreboard">
+  <table id="scoreTable">
+    <thead>
+      <tr>
+        <th>曲名</th>
+        <th>PART</th>
+        <th>LV</th>
+        <th>なんちょん</th>
+        <th>コイワイ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- JSで自動生成 -->
+    </tbody>
+  </table>
+</div>
+
+<script>
+async function loadScores() {
+  const res = await fetch("https://script.google.com/macros/s/AKfycbwfkT17HcrW0uiKjOub_5I3Hj-tNcfI1Kqwz8IYiBlaF2MYEdOBrPKEuVBTAQoRZ27Rjw/exec");
+  const data = await res.json();
+
+  const tbody = document.querySelector("#scoreTable tbody");
+  tbody.innerHTML = "";
+
+  data.forEach(row => {
+    let clsA = "draw";
+    let clsB = "draw";
+
+    if (row.nanchon > row.koiwai) {
+      clsA = "win";
+      clsB = "lose";
+    } else if (row.nanchon < row.koiwai) {
+      clsA = "lose";
+      clsB = "win";
+    }
+
+    tbody.innerHTML += `
+      <tr>
+        <td class="song">${row.song}</td>
+        <td>${row.part}</td>
+        <td class="lv">${row.lv}</td>
+        <td class="${clsA}">${row.nanchon}%</td>
+        <td class="${clsB}">${row.koiwai}%</td>
+      </tr>
+    `;
+  });
+}
+
+// 10秒ごとに更新（配信向け）
+loadScores();
+setInterval(loadScores, 1000);
+</script>
+
+</body>
+</html>
+
