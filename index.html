@@ -123,36 +123,44 @@ function showResult(data) {
     data.part ? `${data.part} / Lv.${data.level}` : `Lv.${data.level}`;
 }
 
-// 【抽選実行】ボタンを押した時だけ実行
 async function draw() {
   if (isDrawing) return; 
   
-  isDrawing = true; // ロック開始
+  isDrawing = true;
   const btn = document.getElementById("btn");
   btn.disabled = true;
 
   startAnimation();
 
+  // 演出を長めに見せるため、最低でも3秒（3000ms）待機する時間を記録
+  const startTime = Date.now();
+
   try {
-    // 強制的に action=draw を一回だけ叩く
-    const res = await fetch(`${GAS_URL}?action=draw&t=${Date.now()}`);
+    const res = await fetch(`${GAS_URL}?action=draw&t=${startTime}`);
     const result = await res.json();
 
     if (result.title) {
-      lastTime = result.time; // 取得した時間を記録
-      stopAnimation();
-      showResult(result);
+      // GASの処理が終わっても、最低3秒経つまでは演出を続ける
+      const elapsedTime = Date.now() - startTime;
+      const waitTime = Math.max(0, 3000 - elapsedTime); 
+
+      setTimeout(() => {
+        lastTime = result.time;
+        stopAnimation();
+        showResult(result); // ここでpartも正しく表示されます
+        
+        setTimeout(() => {
+          isDrawing = false; 
+          btn.disabled = false;
+        }, 1000);
+      }, waitTime);
     }
   } catch (e) {
     console.error("抽選エラー:", e);
     stopAnimation();
-    document.getElementById("song").textContent = "エラーが発生しました";
-  } finally {
-    // 1秒待ってからロック解除（連打防止）
-    setTimeout(() => {
-      isDrawing = false; 
-      btn.disabled = false;
-    }, 1000);
+    document.getElementById("song").textContent = "通信エラー";
+    isDrawing = false;
+    btn.disabled = false;
   }
 }
 
@@ -194,6 +202,7 @@ setInterval(fetchResult, 500);
 </script>
 </body>
 </html>
+
 
 
 
