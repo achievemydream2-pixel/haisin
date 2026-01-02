@@ -93,30 +93,31 @@ function showResult(data) {
     `${data.part} / Lv.${data.level}`;
 }
 
-// 抽選ボタン（POST）
+// 抽選ボタン
 async function draw() {
   const btn = document.getElementById("btn");
   btn.disabled = true;
 
   startAnimation();
 
-  await fetch(GAS_URL, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ action: "draw" })
-});
-  // 少し待って同期取得
-  setTimeout(fetchResult, 600);
+  await fetch(
+    GAS_URL + "?action=draw&t=" + Date.now()
+  );
+
+  // 抽選後に結果取得
+  setTimeout(fetchResult, 800);
 
   btn.disabled = false;
 }
 
-// 定期同期（GET）
+// 結果取得（同期用）
 async function fetchResult() {
-  const res = await fetch(GAS_URL);
+  const res = await fetch(
+    GAS_URL + "?action=get&t=" + Date.now()
+  );
   const data = await res.json();
+
+  if (!data.time) return;
 
   if (data.time !== lastTime) {
     lastTime = data.time;
@@ -125,11 +126,13 @@ async function fetchResult() {
   }
 }
 
-// 3秒ごとに同期
+// 初回 & 定期同期
 fetchResult();
 setInterval(fetchResult, 3000);
 </script>
+
 </body>
 </html>
+
 
 
