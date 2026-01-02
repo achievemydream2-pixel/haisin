@@ -18,45 +18,71 @@ body {
 }
 
 .container {
-  width: 620px;
-  padding: 30px;
-  background: rgba(10, 10, 25, 1);
-  border-radius: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  /* 全体的に1.5倍サイズへ拡大 */
+  width: 930px; 
+  padding: 45px;
+  background: rgba(10, 10, 25, 0.92);
+  border-radius: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
   color: #fff;
   text-align: center;
+  box-shadow: 0 15px 45px rgba(0,0,0,0.6);
 }
 
 .song {
-  font-size: 36px;
+  /* 文字サイズを1.5倍に */
+  font-size: 54px; 
   font-weight: bold;
-  min-height: 50px;
-  margin-bottom: 10px;
+  min-height: 80px;
+  margin-bottom: 15px;
   color: #00f2ff;
+  text-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
+  /* 長い曲名でもはみ出さないように調整 */
+  word-wrap: break-word;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .meta {
-  font-size: 22px;
+  /* 文字サイズを1.5倍に */
+  font-size: 32px;
   opacity: 0.9;
-  height: 30px;
-  margin-bottom: 25px;
+  height: 45px;
+  margin-bottom: 40px;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+  padding-bottom: 15px;
 }
 
 button {
-  font-size: 24px;
-  padding: 12px 50px;
+  /* ボタンも特大サイズに変更 */
+  font-size: 36px;
+  padding: 18px 80px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
   font-weight: bold;
   color: #fff;
   background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.4);
+}
+
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 10px 30px rgba(255, 77, 109, 0.6);
+}
+
+button:active {
+  transform: scale(0.95);
 }
 
 button:disabled {
   background: #444;
   opacity: 0.7;
   cursor: default;
+  transform: none;
+  box-shadow: none;
 }
 </style>
 </head>
@@ -158,6 +184,7 @@ setInterval(fetchResult, 5000);
 </script>
 </body>
 </html>
+
 
 
 
