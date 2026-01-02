@@ -3,38 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GITADORA 抽選システム (安定同期版)</title>
+<title>GITADORA 抽選システム (完全同期版)</title>
 
 <style>
 body {
   margin: 0;
   background: #0a0a19;
+  /* お好みの背景画像URLに差し替えてください */
   background: url("背景画像URL") no-repeat center/cover;
   font-family: "Segoe UI", "Meiryo", sans-serif;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
+  overflow: hidden;
 }
 
 .container {
   width: 930px; 
-  padding: 45px;
-  background: rgba(10, 10, 25, 0.98);
-  border-radius: 30px;
+  padding: 50px;
+  background: rgba(10, 10, 25, 0.95);
+  border-radius: 40px;
   border: 3px solid rgba(255, 255, 255, 0.2);
   color: #fff;
   text-align: center;
-  box-shadow: 0 15px 45px rgba(0,0,0,0.6);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
 }
 
 .song {
-  font-size: 54px; 
+  font-size: 58px; 
   font-weight: bold;
-  min-height: 80px;
-  margin-bottom: 15px;
+  min-height: 90px;
+  margin-bottom: 20px;
   color: #00f2ff;
-  text-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
+  text-shadow: 0 0 20px rgba(0, 242, 255, 0.6);
   word-wrap: break-word;
   display: flex;
   align-items: center;
@@ -44,15 +46,15 @@ body {
 .meta {
   font-size: 38px;
   opacity: 0.9;
-  height: 45px;
-  margin-bottom: 40px;
+  height: 50px;
+  margin-bottom: 50px;
   border-bottom: 2px solid rgba(255,255,255,0.1);
-  padding-bottom: 15px;
+  padding-bottom: 20px;
 }
 
 button {
-  font-size: 36px;
-  padding: 18px 80px;
+  font-size: 40px;
+  padding: 22px 100px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
@@ -60,12 +62,24 @@ button {
   color: #fff;
   background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
   transition: transform 0.1s, box-shadow 0.2s;
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.4);
+  box-shadow: 0 8px 25px rgba(255, 77, 109, 0.5);
 }
 
-button:hover { transform: scale(1.05); }
-button:active { transform: scale(0.95); }
-button:disabled { background: #444; opacity: 0.7; cursor: default; }
+button:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 12px 35px rgba(255, 77, 109, 0.7);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+button:disabled {
+  background: #444;
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
 </style>
 </head>
 
@@ -77,15 +91,17 @@ button:disabled { background: #444; opacity: 0.7; cursor: default; }
 </div>
 
 <script>
+// ★GASのデプロイURLをここに貼り付け
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyLLE6PNo8AXUzAzY3FlcLt9KzYk2hUa_ChQmcw0drNQkQ5x4ue6vYD6A7C1ABYXd_W7g/exec";
 
 let animTimer = null;
-let lastTime = null;
-let lastStartTime = null; // 最後に処理した開始時刻
-let isDrawing = false; 
+let lastTime = null;      // 最後に表示した抽選完了時刻
+let lastStartTime = null; // 最後に処理した抽選開始ID（ミリ秒）
+let isDrawing = false;    // 自分が抽選操作中かどうかのフラグ
 
+// 演出アニメーション
 function startAnimation() {
-  const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Agnus Dei"];
+  const dummy = ["MODEL DD", "DESTINY", "VANESSA", "EXCHAIN", "The Least", "Agnus Dei", "Children of Bodom"];
   let i = 0;
   if (animTimer) clearInterval(animTimer);
   animTimer = setInterval(() => {
@@ -105,64 +121,70 @@ function showResult(data) {
     data.part ? `${data.part} / Lv.${data.level}` : `Lv.${data.level}`;
 }
 
-// 自分でボタンを押した時の処理
+// 【自分でボタンを押した時の処理】
 async function draw() {
   if (isDrawing) return; 
-  isDrawing = true;
+  
+  isDrawing = true; 
   const btn = document.getElementById("btn");
   btn.disabled = true;
 
   startAnimation();
-  const requestTime = Date.now();
+  const requestStartTime = Date.now();
 
   try {
-    const res = await fetch(`${GAS_URL}?action=draw&t=${requestTime}`);
+    const res = await fetch(`${GAS_URL}?action=draw&t=${requestStartTime}`);
     const result = await res.json();
 
-    if (result.title) {
-      // 重要：自分が発行した時刻を即座に記録し、fetchResultでの重複反応を防止
-      lastStartTime = result.startTime;
+    if (result.startTime) {
+      // 自分が発行したIDを即座に保存（定期チェックでの二重反応を防止）
+      lastStartTime = String(result.startTime);
+      lastTime = result.time;
 
-      // 7秒演出
-      const elapsedTime = Date.now() - requestTime;
+      // 最低7秒は演出を見せる
+      const elapsedTime = Date.now() - requestStartTime;
       const waitTime = Math.max(0, 7000 - elapsedTime); 
 
       setTimeout(() => {
-        lastTime = result.time;
         stopAnimation();
         showResult(result);
         
-        // 演出終了後にロック解除
+        // 演出終了後、少し余裕を持ってからロック解除（通信ラグ対策）
         setTimeout(() => {
           isDrawing = false; 
           btn.disabled = false;
-        }, 1000);
+        }, 2000); 
       }, waitTime);
     }
   } catch (e) {
     console.error("抽選エラー:", e);
     stopAnimation();
+    document.getElementById("song").textContent = "ERROR";
     isDrawing = false;
     btn.disabled = false;
   }
 }
 
-// 他の人の動作を検知する定期同期
+// 【定期チェック（他人の動作を同期）】
 async function fetchResult() {
-  // 自分が抽選実行中なら、重複演出を避けるため何もしない
+  // 自分が抽選操作中なら、同期処理による上書きを完全にブロックする
   if (isDrawing) return;
 
   try {
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    // 他の人が新しい抽選を始めたかチェック
-    if (data.startTime && data.startTime !== lastStartTime) {
-      lastStartTime = data.startTime; // 開始時刻を更新してロック
+    // ID（startTime）を文字列として比較し、未知のIDであれば演出開始
+    if (data.startTime && String(data.startTime) !== String(lastStartTime)) {
       
+      // 他人の抽選を検知したのでIDを更新
+      lastStartTime = String(data.startTime);
+      
+      // すでに演出中でなければ開始
       if (!animTimer) {
         startAnimation();
-        // 他の人側の画面でも7秒演出（同期）
+        
+        // 7秒演出後に結果を表示
         setTimeout(() => {
           stopAnimation();
           showResult(data);
@@ -170,25 +192,26 @@ async function fetchResult() {
         }, 7000);
       }
     } 
-    // 演出中でない時の通常更新
+    // 演出中でなく、単に読み込み時やデータ更新が必要な場合
     else if (!animTimer && data.time !== lastTime) {
       lastTime = data.time;
       showResult(data);
     }
   } catch (e) {
-    console.warn("同期エラー");
+    // 同期エラーは無視
   }
 }
 
-// 初回読み込み
+// ページを開いた瞬間に一度チェック
 fetchResult();
 
-// 7秒ごとにチェック
-setInterval(fetchResult, 7000);
+// 5秒おきに最新状態を確認（ID照合があるため、演出時間より短くても安全）
+setInterval(fetchResult, 5000);
 
 </script>
 </body>
 </html>
+
 
 
 
