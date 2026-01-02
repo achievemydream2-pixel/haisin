@@ -164,30 +164,35 @@ async function draw() {
   }
 }
 
-// 定期同期関数の修正
+let lastStartTime = null; // 最後に見た抽選の開始時刻
+
 async function fetchResult() {
-  // 自分がボタンを押して抽選している間は、二重動作を防ぐため同期を止める
   if (isDrawing) return;
 
   try {
     const res = await fetch(`${GAS_URL}?action=get&t=${Date.now()}`);
     const data = await res.json();
 
-    // 他の人が抽選を開始した（statusがdrawingになった）場合
-    if (data.status === "drawing") {
-      if (!animTimer) { // まだアニメーションしていなければ開始
+    // 【重要】前回見た開始時刻より新しい時刻が届いたら、抽選演出を開始する
+    if (data.startTime && data.startTime !== lastStartTime) {
+      lastStartTime = data.startTime; // 開始時刻を更新
+      
+      // まだアニメーションしてなければ開始
+      if (!animTimer) {
         startAnimation();
+        
+        // 5秒間は強制的に回し続けてから、結果を表示する
+        setTimeout(() => {
+          stopAnimation();
+          showResult(data);
+          lastTime = data.time;
+        }, 5000); 
       }
-      return; // 抽選中なので、結果の表示処理には進まない
-    }
-
-    // 抽選が終わっている（statusがidle）場合
-    if (data.status === "idle" || !data.status) {
-      if (data.time !== lastTime) {
-        lastTime = data.time;
-        stopAnimation(); // アニメーションを止めて
-        showResult(data); // 結果を表示
-      }
+    } 
+    // 抽選中でなく、かつ新しい結果がある場合（初回読み込みなど）
+    else if (!animTimer && data.time !== lastTime) {
+      lastTime = data.time;
+      showResult(data);
     }
   } catch (e) {
     console.warn("同期エラー");
@@ -202,6 +207,7 @@ setInterval(fetchResult, 7000);
 </script>
 </body>
 </html>
+
 
 
 
