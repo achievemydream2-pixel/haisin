@@ -21,7 +21,7 @@ body {
   /* 全体的に1.5倍サイズへ拡大 */
   width: 930px; 
   padding: 45px;
-  background: rgba(10, 10, 25, 0.92);
+  background: rgba(10, 10, 25, 0.98);
   border-radius: 30px;
   border: 3px solid rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -179,11 +179,12 @@ async function fetchResult() {
 fetchResult();
 
 // 5秒ごとに「現在のシートの状態」を見に行くだけ
-setInterval(fetchResult, 5000);
+setInterval(fetchResult, 1000);
 
 </script>
 </body>
 </html>
+
 
 
 
